@@ -6,10 +6,14 @@
 #include <vector>
 #include "ConfigReaderExceptions.h"
 #include <unistd.h>
+#include <fcntl.h>
 
 enum ERRORS {
 	NO_ERROR = 0,
-	WRONG_FORMAT = 1
+	WRONG_FORMAT = 1,
+	FAILED_TO_READ = 2,
+	FAILED_TO_CLOSE = 3,
+	FAILED_TO_OPEN = 4,
 };
 
 struct Address {
@@ -21,6 +25,8 @@ class ConfigFileReader {
 private:
 	Address m_receiverAddr;
 
+private:
+
 	Address m_senderAddr;
 
 	ERRORS parseInput(char *input);
@@ -28,7 +34,9 @@ private:
 	ERRORS m_error = NO_ERROR;
 
 public:
-	explicit ConfigFileReader(const std::string &inputFileName);
+	ConfigFileReader() = default;
+
+	void readConfig(const std::string &inputFileName);
 
 	const Address &m_getReceiverAddr() const;
 
@@ -38,25 +46,16 @@ public:
 
 	void m_setSenderAddr(const Address &senderAddr);
 
+	ERRORS m_getError() const;
+
 private:
 	typedef struct File {
 		int descriptor;
 		int len;
 		char *content;
-		char *error_message;
 	} File;
 
-	static bool readFile(int file, char *buffer, size_t len) {
-		size_t readSize = 1;
-		while(readSize > 0) {
-			readSize = read(file, buffer, len);
-			if(readSize < 0 && errno != EINTR) {
-				printf("Failed to read file\n");
-				return false;
-			}
-		}
-		return true;
-	}
+	bool readFile(int file, char *buffer, size_t len);
 };
 
 #endif //SRT_LISTENER_APP_CONFIGFILEREADER_HPP

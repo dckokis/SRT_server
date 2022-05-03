@@ -39,7 +39,7 @@ ERRORS ConfigFileReader::parseInput(char *input) {
 		auto addrLen = address.length() - protocolLen - 1;
 		std::string port(address.substr(isColon + 1, addrLen));
 		size_t pos = 0;
-		while( (pos = port.find("\r\n", pos)) != std::string::npos )
+		while((pos = port.find("\r\n", pos)) != std::string::npos)
 			port.replace(pos, 2, "");
 		buffer.push_back(protocol);
 		buffer.push_back(port);
@@ -54,22 +54,49 @@ ERRORS ConfigFileReader::parseInput(char *input) {
 	return NO_ERROR;
 }
 
-ConfigFileReader::ConfigFileReader(const string &inputFileName) {
+bool ConfigFileReader::readFile(int file, char *buffer, size_t len) {
+	size_t readSize = 1;
+	while(readSize > 0) {
+		readSize = read(file, buffer, len);
+		if(readSize < 0 && errno != EINTR) {
+			m_error = FAILED_TO_READ;
+			return false;
+		}
+	}
+	return true;
+}
+
+ERRORS ConfigFileReader::m_getError() const {
+	return m_error;
+}
+
+void ConfigFileReader::readConfig(const string &inputFileName) {
 	vector<string> read;
 	string line;
-	File *file = static_cast<File *>(malloc(sizeof(File)));
+	File *file = new File;
 	file->descriptor = open(inputFileName.c_str(), O_RDONLY);
+	if(file->descriptor == -1) {
+		m_error = FAILED_TO_OPEN;
+		throw ConfigReaderExceptions("FAILED TO OPEN FILE");
+	}
 	off_t seekPos = lseek(file->descriptor, 0, SEEK_END);
-	if (seekPos == (off_t) -1) {
+	if(seekPos == (off_t) -1) {
 		file->len = -1;
 	}
 	file->len = (int) seekPos + 1;
 	lseek(file->descriptor, 0, SEEK_SET);
-	file->content = (char *) malloc(file->len);
-	readFile(file->descriptor, file->content, file->len);
+	file->content = new char[file->len];
+	if(!readFile(file->descriptor, file->content, file->len)) {
+		m_error = FAILED_TO_READ;
+		throw ConfigReaderExceptions("FAILED TO READ FILE");
+	}
 	m_error = parseInput(file->content);
 	if(m_error == WRONG_FORMAT) {
 		throw ConfigReaderExceptions("WRONG CONFIG FORMAT");
 	}
+	if(close(file->descriptor) == -1)
+		m_error = FAILED_TO_CLOSE;
+	delete file->content;
+	delete file;
 }
 
