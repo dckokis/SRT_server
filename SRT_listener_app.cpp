@@ -1,5 +1,4 @@
 ﻿#include <fstream>
-#include "SRT_listener_app.h"
 
 //using namespace std;
 //
@@ -32,19 +31,17 @@
 #include <string>
 #include <cstring>
 #include <srt.h>
-#include <cassert>             // assert
+#include <cassert>
+
 
 using namespace std;
 
 int main(int argc, char *argv[]) {
 
-	auto configFileName = "config.txt";
-	ConfigFileReader parser;
-	parser.readConfig(configFileName);
 	// use this function to initialize the UDT library
 	srt_startup();
 
-	addrinfo hints;
+	addrinfo hints{};
 	addrinfo *res;
 
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -56,7 +53,7 @@ int main(int argc, char *argv[]) {
 	if(2 == argc)
 		service = argv[1];
 
-	if(0 != getaddrinfo(NULL, service.c_str(), &hints, &res)) {
+	if(0 != getaddrinfo(nullptr, service.c_str(), &hints, &res)) {
 		cout << "illegal port number or port is busy.\n" << endl;
 		return 0;
 	}
@@ -104,6 +101,8 @@ int main(int argc, char *argv[]) {
 	SRTSOCKET srtrfds[srtrfdslenmax];
 	char data[1500];
 
+
+
 	while(true) {
 		string in;
 		cin >> in;
@@ -128,7 +127,7 @@ int main(int argc, char *argv[]) {
 					int ret = srt_recv(s, data, 0);
 					cout << "OK" << endl;
 					if(SRT_ERROR == ret) {
-						if(SRT_EASYNCRCV != srt_getlasterror(NULL)) {
+						if(SRT_EASYNCRCV != srt_getlasterror(nullptr)) {
 							cout << "srt_recvmsg: " << srt_getlasterror_str() << endl;
 							return 0;
 						}
