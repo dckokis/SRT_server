@@ -2,12 +2,14 @@
 
 #include <exception>
 #include <string>
+#include <stdexcept>
 
-class ListenerException final : std::runtime_error {
+class ServerException final : std::runtime_error {
 	std::string m_error;
 public:
-	explicit ListenerException(const std::string &arg) : runtime_error(arg), m_error(arg){}
+	explicit ServerException(const std::string &arg) : runtime_error(arg),  m_error(arg){}
 	const char * what() const noexcept override {
 		return m_error.c_str();
 	}
 };
+

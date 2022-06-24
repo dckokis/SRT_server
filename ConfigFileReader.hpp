@@ -4,7 +4,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#include "ConfigReaderExceptions.h"
+#include "ConfigReaderExceptions.hpp"
 #include <unistd.h>
 #include <fcntl.h>
 

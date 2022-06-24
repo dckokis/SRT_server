@@ -2,7 +2,7 @@
 
 using namespace std;
 
-Listener::Listener() {
+Listener::Listener(const string &port) {
 	if(mkfifo(m_fifo_name.c_str(), 0777) != 0) {
 		throw ListenerException("failed to make fifo");
 	}
@@ -13,15 +13,15 @@ Listener::Listener() {
 		throw ListenerException("failed to startup srt lib");
 	}
 	try {
-		SetListenerSocket();
+		SetListenerSocket(port);
 	}
 	catch(ListenerException &ex) {
 		close(m_fifo_descriptor);
-		throw ex;
+		throw;
 	}
 }
 
-void Listener::SetListenerSocket() {
+void Listener::SetListenerSocket(const string &port) {
 	addrinfo loc_addrinfo{};
 	addrinfo *loc_res;
 
@@ -30,7 +30,7 @@ void Listener::SetListenerSocket() {
 	loc_addrinfo.ai_family = AF_INET;
 	loc_addrinfo.ai_socktype = SOCK_DGRAM;
 
-	string loc_service("9000");
+	const string &loc_service(port);
 
 	if(0 != getaddrinfo(nullptr, loc_service.c_str(), &loc_addrinfo, &loc_res)) {
 		freeaddrinfo(loc_res);
@@ -44,7 +44,9 @@ void Listener::SetListenerSocket() {
 	}
 
 	auto loc_transtype = SRTT_LIVE;
-	if(SRT_ERROR == srt_setsockflag(m_listener, SRTO_TRANSTYPE, &loc_transtype, sizeof loc_transtype)) {
+	bool no = false;/// Установили неблокирующий режим
+	if(SRT_ERROR == srt_setsockflag(m_listener, SRTO_TRANSTYPE, &loc_transtype, sizeof loc_transtype)
+	   || SRT_ERROR == srt_setsockopt(m_listener, 0, SRTO_RCVSYN, &no, sizeof no)) {
 		freeaddrinfo(loc_res);
 		throw ListenerException(srt_getlasterror_str());
 	}
@@ -62,7 +64,7 @@ void Listener::SetListenerSocket() {
 	cout << "server is ready at port: " << m_server_port << endl;
 }
 
-int Listener::ReceiveData() const {
+void Listener::ReceiveData() const {
 	int loc_epollId = srt_epoll_create();
 	if(loc_epollId < 0) {
 		throw ListenerException(srt_getlasterror_str());
@@ -77,7 +79,7 @@ int Listener::ReceiveData() const {
 	SRTSOCKET loc_rfds[loc_rfdsMaxLen];
 	char data[m_max_packet_size];
 
-	while(true) {
+	while(true) { //////////////////// Как тормозить? По таймеру(больше n секунд не было сообщений)?
 		int rfdsLen = loc_rfdsMaxLen;
 		int n = srt_epoll_wait(loc_epollId, &loc_rfds[0], &rfdsLen, nullptr, nullptr, 100, nullptr, nullptr, nullptr, nullptr);
 		assert(n <= rfdsLen);
@@ -115,20 +117,66 @@ int Listener::ReceiveData() const {
 				}
 			} else {
 				while(true) {
-					int ret = srt_recv(s, data, 0);
-					////////////////////////////////// fifo write
-
+					int ret = srt_recv(s, data, m_max_packet_size);
 					if(SRT_ERROR == ret) {
 						if(SRT_EASYNCRCV != srt_getlasterror(nullptr)) {
+							break;/////////////////////// Тут выходим, или ждем и продолжаем?
+						} else {
 							throw ListenerException(srt_getlasterror_str());
 						}
-						break;
+					}
+					if(write(m_fifo_descriptor, data, ret) == -1) {
+						throw ListenerException("failed to write to fifo");
 					}
 					cout << "message received" << endl;
 				}
 			}
 		}
+		srt_epoll_release(loc_epollId);
 	}
-	srt_epoll_release(loc_epollId);
-	return 0;
+}
+
+int Listener::m_getServerPort() const {
+	return m_server_port;
+}
+
+void Listener::m_setServerPort(int serverPort) {
+	m_server_port = serverPort;
+}
+
+int Listener::m_getFifoDescriptor() const {
+	return m_fifo_descriptor;
+}
+
+void Listener::m_setFifoDescriptor(int fifoDescriptor) {
+	m_fifo_descriptor = fifoDescriptor;
+}
+
+const string &Listener::m_getFifoName() const {
+	return m_fifo_name;
+}
+
+void Listener::m_setFifoName(const string &fifoName) {
+	m_fifo_name = fifoName;
+}
+
+SRTSOCKET Listener::m_getListener() const {
+	return m_listener;
+}
+
+void Listener::m_setListener(SRTSOCKET listener) {
+	m_listener = listener;
+}
+
+size_t Listener::m_getMaxPacketSize() const {
+	return m_max_packet_size;
+}
+
+void Listener::m_setMaxPacketSize(size_t maxPacketSize) {
+	m_max_packet_size = maxPacketSize;
+}
+
+Listener::~Listener() {
+	close(m_fifo_descriptor);
+	srt_close(m_listener);
 }
