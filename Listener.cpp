@@ -2,13 +2,7 @@
 
 using namespace std;
 
-Listener::Listener(const string &port) {
-	if(mkfifo(m_fifo_name.c_str(), 0777) != 0) {
-		throw ListenerException("failed to make fifo");
-	}
-	if((m_fifo_descriptor = open(m_fifo_name.c_str(), O_WRONLY)) <= 0) {
-		throw ListenerException("failed to open fifo");
-	}
+Listener::Listener(const string &port, FIFO &fifo) : m_fifo(fifo) {
 	if(srt_startup() < 0) {
 		throw ListenerException("failed to startup srt lib");
 	}
@@ -16,7 +10,6 @@ Listener::Listener(const string &port) {
 		SetListenerSocket(port);
 	}
 	catch(ListenerException &ex) {
-		close(m_fifo_descriptor);
 		throw;
 	}
 }
@@ -120,15 +113,25 @@ void Listener::ReceiveData() const {
 					int ret = srt_recv(s, data, m_max_packet_size);
 					if(SRT_ERROR == ret) {
 						if(SRT_EASYNCRCV != srt_getlasterror(nullptr)) {
-							break;/////////////////////// Тут выходим, или ждем и продолжаем?
+							break;
 						} else {
-							throw ListenerException(srt_getlasterror_str());
+							srt_close(s);
+							break;
 						}
 					}
-					if(write(m_fifo_descriptor, data, ret) == -1) {
+					try {
+						vector<Block> tmp_storage;
+						tmp_storage.push_back(Block(data));
+						m_fifo.addData(tmp_storage);
+						cout << "message received" << endl;
+					}
+					catch(BlockException& ex) {
+						//////////////////?
+					}
+					catch(FIFOexception& ex) {
+						cerr << ex.what() << endl;
 						throw ListenerException("failed to write to fifo");
 					}
-					cout << "message received" << endl;
 				}
 			}
 		}
@@ -144,22 +147,6 @@ void Listener::m_setServerPort(int serverPort) {
 	m_server_port = serverPort;
 }
 
-int Listener::m_getFifoDescriptor() const {
-	return m_fifo_descriptor;
-}
-
-void Listener::m_setFifoDescriptor(int fifoDescriptor) {
-	m_fifo_descriptor = fifoDescriptor;
-}
-
-const string &Listener::m_getFifoName() const {
-	return m_fifo_name;
-}
-
-void Listener::m_setFifoName(const string &fifoName) {
-	m_fifo_name = fifoName;
-}
-
 SRTSOCKET Listener::m_getListener() const {
 	return m_listener;
 }
@@ -172,11 +159,10 @@ size_t Listener::m_getMaxPacketSize() const {
 	return m_max_packet_size;
 }
 
-void Listener::m_setMaxPacketSize(size_t maxPacketSize) {
+void Listener::m_setMaxPacketSize(int maxPacketSize) {
 	m_max_packet_size = maxPacketSize;
 }
 
 Listener::~Listener() {
-	close(m_fifo_descriptor);
 	srt_close(m_listener);
 }

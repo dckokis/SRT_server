@@ -18,12 +18,16 @@ private:
 
 	SRTSOCKET m_server{};
 
-	size_t m_max_packet_size = 1456*8;
+	size_t m_max_packet_size = 1456 * 8;
 
 public:
-	explicit Server(const std::string& port) noexcept(false);
+	explicit Server(const std::string &port) noexcept(false);
+
 	void SendData() const noexcept(false);
+
+	virtual ~Server();
+
 private:
-	void SetServerSocket(const std::string& port) noexcept(false);
+	void SetServerSocket(const std::string &port) noexcept(false);
 };
 

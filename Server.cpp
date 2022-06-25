@@ -88,21 +88,21 @@ void Server::SendData() const noexcept(false) {
 				cout << "source disconnected. status=" << status << endl;
 				srt_close(s);
 				continue;
-			} else if(s == m_server) {
+			} else if(s == m_server) {// когд появился клиент-открываем пайп, в конструкторе не надо
 				assert(status == SRTS_LISTENING);
 
 				SRTSOCKET loc_srtsocket;
 				sockaddr_storage loc_clientAddress{};
 				int loc_addrlen = sizeof(loc_clientAddress);
 
-				loc_srtsocket = srt_accept(m_server, (sockaddr * ) & loc_clientAddress, &loc_addrlen);
+				loc_srtsocket = srt_accept(m_server, (sockaddr *) &loc_clientAddress, &loc_addrlen);
 				if(SRT_INVALID_SOCK == loc_srtsocket) {
 					throw ServerException(srt_getlasterror_str());
 				}
 
 				char loc_clientHost[NI_MAXHOST];
 				char loc_clientService[NI_MAXSERV];
-				getnameinfo((sockaddr * ) & loc_clientAddress, loc_addrlen,
+				getnameinfo((sockaddr *) &loc_clientAddress, loc_addrlen,
 							loc_clientHost, sizeof(loc_clientHost),
 							loc_clientService, sizeof(loc_clientService), NI_NUMERICHOST | NI_NUMERICSERV);
 				cout << "new connection: " << loc_clientHost << ":" << loc_clientService << endl;
@@ -114,8 +114,8 @@ void Server::SendData() const noexcept(false) {
 			} else {
 				while(true) {
 					char data[m_max_packet_size];
-					int len = read(m_fifo_descriptor, data, m_max_packet_size);
-					int snd = srt_recv(s, data, len);
+					int len = read(m_fifo_descriptor, data, m_max_packet_size);// ЕСЛИ ЧТЕНИЕ ИЗ ПАЙПА НЕ БЛОКИРУЮЩЕЕ: если len <= 0 и разница времени захода в это место > 1 секунды то значит бан закрываем сокет и тд
+					int snd = srt_send(s, data, len);
 					if(SRT_ERROR == snd) {
 						if(SRT_EASYNCSND != srt_getlasterror(nullptr)) {
 							break;/////////////////////// Тут выходим, или ждем и продолжаем?
@@ -123,11 +123,15 @@ void Server::SendData() const noexcept(false) {
 							throw ServerException(srt_getlasterror_str());
 						}
 					}
-
 					cout << "message sent" << endl;
 				}
 			}
 		}
 		srt_epoll_release(loc_epollId);
 	}
+}
+
+Server::~Server() {
+	srt_close(m_server);
+	close(m_fifo_descriptor);
 }

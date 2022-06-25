@@ -34,13 +34,13 @@ using namespace std;
 int main(int argc, char *argv[]) {
 	try {
 		string port("9000");
-		Listener listener(port);
+		Listener listener(port, <#initializer#>);
 		listener.ReceiveData();
 	}
 	catch(ListenerException &ex) {
 		cerr << "Listener process failure with a specific exception: " << ex.what() << endl;
 	}
-	catch(exception& ex) {
+	catch(exception &ex) {
 		cerr << "Listener process failure: " << ex.what() << endl;
 	}
 }
