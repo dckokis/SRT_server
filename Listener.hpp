@@ -17,9 +17,6 @@ class Listener final {
 	SRTSOCKET m_listener{};
 
 	int m_max_packet_size = Block::getBlockSize();
-
-//	char m_block_storage[7 * 188] = {};
-
 public:
 	int m_getServerPort() const;
 

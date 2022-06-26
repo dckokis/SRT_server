@@ -117,7 +117,7 @@ void Server::SendData() const noexcept(false) {
 					auto tmp_data = m_fifo.getData(0, tmp_index_reader);
 					m_fifo.eraseData(0, tmp_index_reader);
 					for(auto block : tmp_data) { // пытаемся отправить все что было нового в фифо по очереди
-						int snd = srt_send(s, block.getData(), m_max_packet_size);
+						int snd = srt_send(s, block.getData(), block.getPayloadSize());
 						if(SRT_ERROR == snd) {
 							if(SRT_EASYNCSND != srt_getlasterror(nullptr)) {
 								sending = false;

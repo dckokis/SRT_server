@@ -72,7 +72,7 @@ void Listener::ReceiveData() {
 	SRTSOCKET loc_rfds[loc_rfdsMaxLen];
 	char data[m_max_packet_size];
 
-	while(true) { //////////////////// Как тормозить? По таймеру(больше n секунд не было сообщений)?
+	while(true) {
 		int rfdsLen = loc_rfdsMaxLen;
 		int n = srt_epoll_wait(loc_epollId, &loc_rfds[0], &rfdsLen, nullptr, nullptr, 100, nullptr, nullptr, nullptr, nullptr);
 		assert(n <= rfdsLen);
@@ -121,18 +121,10 @@ void Listener::ReceiveData() {
 						}
 					}
 					try {
-//						if(ret < m_max_packet_size) {
-//							for(int j = 0; j < ret; j++) {
-//								m_block_storage[i] = data[i];
-//							}
-//						}
 						vector<Block> tmp_storage;
-						tmp_storage.push_back(Block(data));
+						tmp_storage.push_back(Block(data, ret));
 						m_fifo.addData(tmp_storage);
 						cout << "message received" << endl;
-					}
-					catch(BlockException &ex) {
-						//////////////////?
 					}
 					catch(FIFOexception &ex) {
 						cerr << ex.what() << endl;

@@ -11,16 +11,15 @@ struct Block {
 private:
 	std::array<char, 7 * 188> m_block = {0};
 
+	size_t m_payload_size;
 public:
-	explicit Block(const std::array<char, 7 * 188> &block);
-
-	explicit Block(const char *block) noexcept(false);
+	explicit Block(const char *block, size_t payload_size = 7 * 188) noexcept(false);
 
 	const char* getData() const;
 
 	static int getBlockSize();
 
-	void setData(const std::array<char, 7 * 188> &mBlock);
+	size_t getPayloadSize() const;
 };
 
 class FIFO {

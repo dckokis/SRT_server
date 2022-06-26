@@ -10,14 +10,3 @@ public:
 		return m_error.c_str();
 	}
 };
-
-class BlockException final : std::runtime_error {
-	std::string m_error;
-
-public:
-	explicit BlockException(const std::string &arg) : runtime_error(arg), m_error(arg) {}
-
-	const char *what() const noexcept override {
-		return m_error.c_str();
-	}
-};
