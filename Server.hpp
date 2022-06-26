@@ -7,21 +7,26 @@
 #include <cstring>
 #include <cassert>
 #include "ServerException.hpp"
+#include "FIFO.hpp"
 
 class Server {
 private:
 	int m_server_port{};
 
-	int m_fifo_descriptor;
-
-	std::string m_fifo_name = "fifo";
+	FIFO & m_fifo;
 
 	SRTSOCKET m_server{};
 
-	size_t m_max_packet_size = 1456 * 8;
+	size_t m_max_packet_size = Block::getBlockSize();
+public:
+	int m_getServerPort() const;
+
+	SRTSOCKET m_getServer() const;
+
+	size_t m_getMaxPacketSize() const;
 
 public:
-	explicit Server(const std::string &port) noexcept(false);
+	explicit Server(const std::string &port, FIFO &fifo) noexcept(false);
 
 	void SendData() const noexcept(false);
 
@@ -29,5 +34,6 @@ public:
 
 private:
 	void SetServerSocket(const std::string &port) noexcept(false);
+
 };
 

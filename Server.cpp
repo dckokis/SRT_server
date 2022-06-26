@@ -2,18 +2,14 @@
 
 using namespace std;
 
-Server::Server(const string &port) {
-	if(mkfifo(m_fifo_name.c_str(), 0777) != 0) {
-		throw ServerException("failed to make fifo");
-	}
-	if((m_fifo_descriptor = open(m_fifo_name.c_str(), O_RDONLY)) <= 0) {
-		throw ServerException("failed to open fifo");
+Server::Server(const string &port, FIFO &fifo) : m_fifo(fifo) {
+	if(srt_startup() < 0) {
+		throw ServerException("failed to startup srt lib");
 	}
 	try {
 		SetServerSocket(port);
 	}
 	catch(ServerException &ex) {
-		close(m_fifo_descriptor);
 		throw;
 	}
 }
@@ -88,21 +84,21 @@ void Server::SendData() const noexcept(false) {
 				cout << "source disconnected. status=" << status << endl;
 				srt_close(s);
 				continue;
-			} else if(s == m_server) {// когд появился клиент-открываем пайп, в конструкторе не надо
+			} else if(s == m_server) {
 				assert(status == SRTS_LISTENING);
 
 				SRTSOCKET loc_srtsocket;
 				sockaddr_storage loc_clientAddress{};
 				int loc_addrlen = sizeof(loc_clientAddress);
 
-				loc_srtsocket = srt_accept(m_server, (sockaddr *) &loc_clientAddress, &loc_addrlen);
+				loc_srtsocket = srt_accept(m_server, (sockaddr * ) & loc_clientAddress, &loc_addrlen);
 				if(SRT_INVALID_SOCK == loc_srtsocket) {
 					throw ServerException(srt_getlasterror_str());
 				}
 
 				char loc_clientHost[NI_MAXHOST];
 				char loc_clientService[NI_MAXSERV];
-				getnameinfo((sockaddr *) &loc_clientAddress, loc_addrlen,
+				getnameinfo((sockaddr * ) & loc_clientAddress, loc_addrlen,
 							loc_clientHost, sizeof(loc_clientHost),
 							loc_clientService, sizeof(loc_clientService), NI_NUMERICHOST | NI_NUMERICSERV);
 				cout << "new connection: " << loc_clientHost << ":" << loc_clientService << endl;
@@ -112,18 +108,29 @@ void Server::SendData() const noexcept(false) {
 					throw ServerException(srt_getlasterror_str());
 				}
 			} else {
-				while(true) {
-					char data[m_max_packet_size];
-					int len = read(m_fifo_descriptor, data, m_max_packet_size);// ЕСЛИ ЧТЕНИЕ ИЗ ПАЙПА НЕ БЛОКИРУЮЩЕЕ: если len <= 0 и разница времени захода в это место > 1 секунды то значит бан закрываем сокет и тд
-					int snd = srt_send(s, data, len);
-					if(SRT_ERROR == snd) {
-						if(SRT_EASYNCSND != srt_getlasterror(nullptr)) {
-							break;/////////////////////// Тут выходим, или ждем и продолжаем?
-						} else {
-							throw ServerException(srt_getlasterror_str());
-						}
+				bool sending = true;
+				while(sending) {
+					auto tmp_index_reader = m_fifo.m_getIndexWrite();
+					if(0 == tmp_index_reader) {
+						sending = false;
 					}
-					cout << "message sent" << endl;
+					auto tmp_data = m_fifo.getData(0, tmp_index_reader);
+					m_fifo.eraseData(0, tmp_index_reader);
+					for(auto block : tmp_data) { // пытаемся отправить все что было нового в фифо по очереди
+						int snd = srt_send(s, block.getData(), m_max_packet_size);
+						if(SRT_ERROR == snd) {
+							if(SRT_EASYNCSND != srt_getlasterror(nullptr)) {
+								sending = false;
+								break;
+							} else {
+								srt_epoll_remove_usock(i, s);
+								srt_close(s);
+								sending = false;
+								break;
+							}
+						}
+						cout << "message sent" << endl;
+					}
 				}
 			}
 		}
@@ -133,5 +140,16 @@ void Server::SendData() const noexcept(false) {
 
 Server::~Server() {
 	srt_close(m_server);
-	close(m_fifo_descriptor);
+}
+
+int Server::m_getServerPort() const {
+	return m_server_port;
+}
+
+SRTSOCKET Server::m_getServer() const {
+	return m_server;
+}
+
+size_t Server::m_getMaxPacketSize() const {
+	return m_max_packet_size;
 }

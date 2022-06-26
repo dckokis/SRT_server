@@ -57,7 +57,7 @@ void Listener::SetListenerSocket(const string &port) {
 	cout << "server is ready at port: " << m_server_port << endl;
 }
 
-void Listener::ReceiveData() const {
+void Listener::ReceiveData() {
 	int loc_epollId = srt_epoll_create();
 	if(loc_epollId < 0) {
 		throw ListenerException(srt_getlasterror_str());
@@ -115,20 +115,26 @@ void Listener::ReceiveData() const {
 						if(SRT_EASYNCRCV != srt_getlasterror(nullptr)) {
 							break;
 						} else {
+							srt_epoll_remove_usock(i, s);
 							srt_close(s);
 							break;
 						}
 					}
 					try {
+//						if(ret < m_max_packet_size) {
+//							for(int j = 0; j < ret; j++) {
+//								m_block_storage[i] = data[i];
+//							}
+//						}
 						vector<Block> tmp_storage;
 						tmp_storage.push_back(Block(data));
 						m_fifo.addData(tmp_storage);
 						cout << "message received" << endl;
 					}
-					catch(BlockException& ex) {
+					catch(BlockException &ex) {
 						//////////////////?
 					}
-					catch(FIFOexception& ex) {
+					catch(FIFOexception &ex) {
 						cerr << ex.what() << endl;
 						throw ListenerException("failed to write to fifo");
 					}
@@ -143,24 +149,12 @@ int Listener::m_getServerPort() const {
 	return m_server_port;
 }
 
-void Listener::m_setServerPort(int serverPort) {
-	m_server_port = serverPort;
-}
-
 SRTSOCKET Listener::m_getListener() const {
 	return m_listener;
 }
 
-void Listener::m_setListener(SRTSOCKET listener) {
-	m_listener = listener;
-}
-
 size_t Listener::m_getMaxPacketSize() const {
 	return m_max_packet_size;
-}
-
-void Listener::m_setMaxPacketSize(int maxPacketSize) {
-	m_max_packet_size = maxPacketSize;
 }
 
 Listener::~Listener() {

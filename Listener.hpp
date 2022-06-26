@@ -18,24 +18,19 @@ class Listener final {
 
 	int m_max_packet_size = Block::getBlockSize();
 
+//	char m_block_storage[7 * 188] = {};
+
 public:
 	int m_getServerPort() const;
 
-	void m_setServerPort(int serverPort);
-
-
 	SRTSOCKET m_getListener() const;
 
-	void m_setListener(SRTSOCKET listener);
-
 	size_t m_getMaxPacketSize() const;
-
-	void m_setMaxPacketSize(int maxPacketSize);
 
 public:
 	explicit Listener(const std::string &port, FIFO &fifo) noexcept(false);
 
-	void ReceiveData() const noexcept(false);
+	void ReceiveData() noexcept(false);
 
 	virtual ~Listener();
 

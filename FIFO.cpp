@@ -10,8 +10,8 @@ Block::Block(const array<char, 7 * 188> &block) {
 	m_block = block;
 }
 
-const array<char, 7 * 188> &Block::getData() const {
-	return m_block;
+const char* Block::getData() const {
+	return m_block.data();
 }
 
 void Block::setData(const array<char, 7 * 188> &mBlock) {
@@ -27,12 +27,13 @@ Block::Block(const char *block) {
 		if(block[i]) {
 			m_block[i] = block[i];
 		} else {
-			throw BlockException("given block size is less than 7 * 188 bytes");
+			m_block[i] = 0;
+//			throw BlockException("given block size is less than 7 * 188 bytes"); // пока не понятно, тут бан или нулями добить можно
 		}
 }
 
-size_t FIFO::m_getIndexWrite() const {
-	return m_index_write.load();
+int FIFO::m_getIndexWrite() const {
+	return m_index_write;
 }
 
 const vector<Block> &FIFO::m_getData() const {
@@ -57,6 +58,24 @@ void FIFO::addData(const vector<Block> &data) {
 }
 
 FIFO::FIFO(size_t blocks_amount) : m_blocks_amount(blocks_amount) {
-	m_data.reserve(m_blocks_amount);
 	m_index_write = 0;
+}
+
+std::vector<Block> FIFO::getData(int begin, int end) {
+	m_FifoMutex.lock();
+	auto loc_end = end < m_index_write ? end : m_index_write;
+	std::vector<Block> data;
+	for (int i = begin; i < loc_end; i++) {
+		data.push_back(m_data[i]);
+	}
+	m_FifoMutex.unlock();
+	return data;
+}
+
+void FIFO::eraseData(int begin, int end) {
+	m_FifoMutex.lock();
+	auto loc_end = end < m_index_write ? end : m_index_write;
+	m_data.erase(m_data.begin() + begin, m_data.begin() + loc_end);
+	m_index_write = begin;
+	m_FifoMutex.unlock();
 }

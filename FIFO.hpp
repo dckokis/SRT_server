@@ -16,7 +16,7 @@ public:
 
 	explicit Block(const char *block) noexcept(false);
 
-	const std::array<char, 7 * 188> &getData() const;
+	const char* getData() const;
 
 	static int getBlockSize();
 
@@ -30,10 +30,10 @@ class FIFO {
 
 	const size_t m_blocks_amount;
 
-	std::atomic<size_t> m_index_write{};
+	int m_index_write;
 
 public:
-	size_t m_getIndexWrite() const;
+	int m_getIndexWrite() const;
 
 	const std::vector<Block> &m_getData() const;
 
@@ -42,5 +42,9 @@ public:
 	explicit FIFO(size_t blocks_amount = 100);
 
 	void addData(const std::vector<Block> &data);
+
+	std::vector<Block> getData(int begin, int end);
+
+	void eraseData(int begin, int end);
 };
 
