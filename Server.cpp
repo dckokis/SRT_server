@@ -57,7 +57,7 @@ void Server::SetServerSocket(const string &port) noexcept(false) {
 	cout << "server is ready at port: " << m_server_port << endl;
 }
 
-void Server::SendData() const noexcept(false) {
+void Server::SendData() noexcept(false) {
 	int loc_epollId = srt_epoll_create();
 	if(loc_epollId < 0) {
 		throw ServerException(srt_getlasterror_str());
@@ -91,14 +91,14 @@ void Server::SendData() const noexcept(false) {
 				sockaddr_storage loc_clientAddress{};
 				int loc_addrlen = sizeof(loc_clientAddress);
 
-				loc_srtsocket = srt_accept(m_server, (sockaddr * ) & loc_clientAddress, &loc_addrlen);
+				loc_srtsocket = srt_accept(m_server, (sockaddr *) &loc_clientAddress, &loc_addrlen);
 				if(SRT_INVALID_SOCK == loc_srtsocket) {
 					throw ServerException(srt_getlasterror_str());
 				}
 
 				char loc_clientHost[NI_MAXHOST];
 				char loc_clientService[NI_MAXSERV];
-				getnameinfo((sockaddr * ) & loc_clientAddress, loc_addrlen,
+				getnameinfo((sockaddr *) &loc_clientAddress, loc_addrlen,
 							loc_clientHost, sizeof(loc_clientHost),
 							loc_clientService, sizeof(loc_clientService), NI_NUMERICHOST | NI_NUMERICSERV);
 				cout << "new connection: " << loc_clientHost << ":" << loc_clientService << endl;
@@ -108,24 +108,22 @@ void Server::SendData() const noexcept(false) {
 					throw ServerException(srt_getlasterror_str());
 				}
 			} else {
-				bool sending = true;
-				while(sending) {
-					auto tmp_index_reader = m_fifo.m_getIndexWrite();
-					if(0 == tmp_index_reader) {
-						sending = false;
+				while(true) {
+					if(m_index_read == m_fifo.m_getIndexWrite()) {
+						break;
 					}
-					auto tmp_data = m_fifo.getData(0, tmp_index_reader);
-					m_fifo.eraseData(0, tmp_index_reader);
-					for(auto block : tmp_data) { // пытаемся отправить все что было нового в фифо по очереди
-						int snd = srt_send(s, block.getData(), block.getPayloadSize());
+					char data[m_max_packet_size];
+					auto [success, payload] = m_fifo.getData(m_index_read, data);
+					if(!success) {
+						break;
+					} else {
+						int snd = srt_send(s, data, payload);
 						if(SRT_ERROR == snd) {
 							if(SRT_EASYNCSND != srt_getlasterror(nullptr)) {
-								sending = false;
 								break;
 							} else {
 								srt_epoll_remove_usock(i, s);
 								srt_close(s);
-								sending = false;
 								break;
 							}
 						}

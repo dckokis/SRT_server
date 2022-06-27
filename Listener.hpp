@@ -17,12 +17,13 @@ class Listener final {
 	SRTSOCKET m_listener{};
 
 	int m_max_packet_size = Block::getBlockSize();
+
 public:
-	int m_getServerPort() const;
+	[[nodiscard]] int m_getServerPort() const;
 
-	SRTSOCKET m_getListener() const;
+	[[nodiscard]] SRTSOCKET m_getListener() const;
 
-	size_t m_getMaxPacketSize() const;
+	[[nodiscard]] size_t m_getMaxPacketSize() const;
 
 public:
 	explicit Listener(const std::string &port, FIFO &fifo) noexcept(false);
@@ -34,3 +35,4 @@ public:
 private:
 	void SetListenerSocket(const std::string &port) noexcept(false);
 };
+

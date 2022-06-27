@@ -18,17 +18,19 @@ private:
 	SRTSOCKET m_server{};
 
 	size_t m_max_packet_size = Block::getBlockSize();
+
+	int m_index_read = 0;
 public:
-	int m_getServerPort() const;
+	[[nodiscard]] int m_getServerPort() const;
 
-	SRTSOCKET m_getServer() const;
+	[[nodiscard]] SRTSOCKET m_getServer() const;
 
-	size_t m_getMaxPacketSize() const;
+	[[nodiscard]] size_t m_getMaxPacketSize() const;
 
 public:
 	explicit Server(const std::string &port, FIFO &fifo) noexcept(false);
 
-	void SendData() const noexcept(false);
+	void SendData() noexcept(false);
 
 	virtual ~Server();
 

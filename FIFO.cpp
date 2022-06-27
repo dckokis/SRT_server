@@ -32,38 +32,37 @@ size_t FIFO::m_getBlocksAmount() const {
 	return m_blocks_amount;
 }
 
-void FIFO::addData(const vector<Block> &data) {
+void FIFO::addData(const Block &data) {
 	m_FifoMutex.lock();
-	if((m_blocks_amount - m_data.size()) < data.size()) {
-		m_FifoMutex.unlock();
-		throw FIFOexception("size of passed data is bigger than space left in fifo");
+	if(m_index_write == m_blocks_amount - 1) {
+		m_index_write = 0;
 	}
-	for(auto block : data) {
-		m_data.push_back(block);
-		m_index_write++;
-	}
+	m_data[m_index_write] = data;
+	m_index_write++;
 	m_FifoMutex.unlock();
 }
 
-FIFO::FIFO(size_t blocks_amount) : m_blocks_amount(blocks_amount) {
+FIFO::FIFO(size_t blocks_amount, double max_delay) : m_blocks_amount(blocks_amount), m_max_delay(max_delay) {
 	m_index_write = 0;
 }
 
-std::vector<Block> FIFO::getData(int begin, int end) {
+pair<bool, int> FIFO::getData(int &index, const char *data) {
 	m_FifoMutex.lock();
-	auto loc_end = end < m_index_write ? end : m_index_write;
-	std::vector<Block> data;
-	for(int i = begin; i < loc_end; i++) {
-		data.push_back(m_data[i]);
+	if(!checkDifference(index)) {
+		m_FifoMutex.unlock();
+		index = m_index_write;
+		return make_pair(false, 0);
+	} else {
+		data = m_data[index].getData();
+		auto payload = m_data[index].getPayloadSize();
+		index++;
+		m_FifoMutex.unlock();
+		return make_pair(true, payload);
 	}
-	m_FifoMutex.unlock();
-	return data;
 }
 
-void FIFO::eraseData(int begin, int end) {
-	m_FifoMutex.lock();
-	auto loc_end = end < m_index_write ? end : m_index_write;
-	m_data.erase(m_data.begin() + begin, m_data.begin() + loc_end);
-	m_index_write = begin;
-	m_FifoMutex.unlock();
+bool FIFO::checkDifference(int index) const {
+	auto difference = m_index_write > index ? m_index_write - index : m_blocks_amount - 1 - index + m_index_write;
+	return abs(difference / m_blocks_amount - m_max_delay) <= 0.0001;
 }
+

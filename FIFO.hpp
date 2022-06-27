@@ -6,20 +6,28 @@
 #include <atomic>
 #include "FIFOexception.hpp"
 
+//короче, в fifo делаем как:
+//данным erase не надо, когда до конца дошли - просто затираем данные в начале
+//если index write и read отличаются больше чем на 20% от размера - делаем сброс, read = write
+//фифошке даю снаружи index read по сслыке, она его меняет и возвращает тру, или не меняет и говорит false,
+//тогда забиваю и иду дальше
+// вычитывать по одному блоку! соответственно давать один индекс от сервера
 struct Block {
 	//// 7 * 188 bytes is a size of 1 TS packet ////
 private:
 	std::array<char, 7 * 188> m_block = {0};
 
 	size_t m_payload_size;
+
 public:
 	explicit Block(const char *block, size_t payload_size = 7 * 188) noexcept(false);
 
-	const char* getData() const;
+	[[nodiscard]] const char *getData() const;
 
 	static int getBlockSize();
 
-	size_t getPayloadSize() const;
+	[[nodiscard]] size_t getPayloadSize() const;
+
 };
 
 class FIFO {
@@ -31,19 +39,21 @@ class FIFO {
 
 	int m_index_write;
 
+	[[nodiscard]] bool checkDifference(int index) const;
+
+	double m_max_delay;
+
 public:
-	int m_getIndexWrite() const;
+	[[nodiscard]] int m_getIndexWrite() const;
 
-	const std::vector<Block> &m_getData() const;
+	[[nodiscard]] const std::vector<Block> &m_getData() const;
 
-	size_t m_getBlocksAmount() const;
+	[[nodiscard]] size_t m_getBlocksAmount() const;
 
-	explicit FIFO(size_t blocks_amount = 100);
+	explicit FIFO(size_t blocks_amount = 100, double max_delay = 0.2);
 
-	void addData(const std::vector<Block> &data);
+	void addData(const Block &data);
 
-	std::vector<Block> getData(int begin, int end);
-
-	void eraseData(int begin, int end);
+	std::pair<bool, int> getData(int& index, const char *data);
 };
 

@@ -121,9 +121,7 @@ void Listener::ReceiveData() {
 						}
 					}
 					try {
-						vector<Block> tmp_storage;
-						tmp_storage.push_back(Block(data, ret));
-						m_fifo.addData(tmp_storage);
+						m_fifo.addData(Block(data, ret));
 						cout << "message received" << endl;
 					}
 					catch(FIFOexception &ex) {
